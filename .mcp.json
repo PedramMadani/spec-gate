@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "spec-gate": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["tsx", "src/index.ts"]
+    }
+  }
+}
