@@ -145,6 +145,19 @@ The reasoning, and what was deliberately excluded, is in [`DECISIONS.md`](DECISI
 - **No signing or hash chaining.** Git history already gives tamper evidence here.
 - **Not a spec generator, not a plan mode, not a linter.** It runs once, before the work starts, and anything outside the profile passes untouched.
 
+## Enforcement
+
+Calling the gate is voluntary until a hook makes it not. `.claude/settings.json` registers a `PreToolUse` hook that **denies file edits in a gated repository until a record authorises the work**:
+
+```
+Write src/auth/session.ts
+  └─ hook: no decision record authorises this work → denied, with instructions
+```
+
+An authorisation is for a piece of work, not a standing permission: it is scoped to the session that earned it and goes stale after twelve hours. A blocked record authorises nothing. A record whose hash no longer matches its content authorises nothing either. A repository with no `.spec-gate.yml` is not gated at all, so the hook is silent everywhere else.
+
+An override still works, and still costs a written reason on the record.
+
 ## Run it
 
 ```bash
@@ -160,16 +173,16 @@ Or in `.mcp.json` (Claude Code) or `.cursor/mcp.json` (Cursor):
 
 Then put a [`.spec-gate.yml`](examples/.spec-gate.yml) in the repo you want gated.
 
-**In 0.0.1 it blocks everything**, on purpose: nothing is scored yet, and an unscored request is not a passing one. `write_record` returns an error rather than pretending a decision was authorised. Not on npm until it does something.
+Not on npm yet. Scores are currently all caller-declared, since the deterministic rule veto lands in v0.1.
 
 ## Status
 
-**Skeleton. The server runs and the two tools answer; scoring and the record are not built yet.**
+**Working, and unfinished.** The gate refuses, records are written and enforced by a hook. The deterministic checks that veto a declared score are not built yet, which means a caller could currently declare its way through.
 
 | | Scope | |
 |---|---|---|
-| **v0.0.1** | Server runs over stdio, config and profile resolution, both tools registered, 14 tests | ✅ |
-| **v0.1** | Deterministic checks, declared scoring with rule veto, elicitation for blocking questions, records written and committed, running against one real autonomous queue | |
+| **v0.0.1** | Server over stdio, config and profile resolution, both tools working, records written and hashed, PreToolUse enforcement hook, 34 tests | ✅ |
+| **v0.1** | Deterministic checks, rule veto on declared scores, elicitation for blocking questions, running against one real autonomous queue | |
 | **v0.2** | `sdlc-critical` profile | |
 
 Open tasks: [`TASKS.md`](TASKS.md). Omissions it has caught in real use: [`CATCHES.md`](CATCHES.md).
