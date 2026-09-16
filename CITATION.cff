@@ -1,0 +1,36 @@
+cff-version: 1.2.0
+title: spec-gate
+message: >-
+  If you use this software or the method it implements, please cite the paper below.
+type: software
+authors:
+  - given-names: Mohammadamin
+    family-names: Madani
+    affiliation: Otto von Guericke University Magdeburg
+repository-code: https://github.com/PedramMadani/spec-gate
+license: Apache-2.0
+abstract: >-
+  Reference implementation of Requirements-Sufficiency-Gated Automation (RSGA) as an
+  MCP server: it refuses to let an agent start on an underspecified request and commits
+  a record of what was missing, what was assumed and who authorised proceeding.
+preferred-citation:
+  type: conference-paper
+  title: >-
+    Requirements Sufficiency Gating for LLM-Assisted Automation: When Should Generation
+    Proceed?
+  authors:
+    - given-names: Mohammadamin
+      family-names: Madani
+    - given-names: Abdulrahman
+      family-names: Nahhas
+    - given-names: Maria
+      family-names: Chernigovskaya
+    - given-names: Klaus
+      family-names: Turowski
+  collection-title: 2026 IEEE 34th International Requirements Engineering Conference (RE)
+  year: 2026
+  start: 262
+  end: 272
+  publisher:
+    name: IEEE
+  doi: 10.1109/RE68928.2026.00028

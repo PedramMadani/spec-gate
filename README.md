@@ -1,14 +1,46 @@
-# spec-gate
+<h1 align="center">spec-gate</h1>
 
-*Working name. Reference implementation of Requirements-Sufficiency-Gated Automation (RSGA), IEEE RE 2026, [doi:10.1109/RE68928.2026.00028](https://doi.org/10.1109/RE68928.2026.00028).*
+<p align="center">
+  <strong>A gate that refuses to let an AI agent start on an underspecified request,<br>and a committed record of what was missing.</strong>
+</p>
 
-**A check that runs before an AI agent starts work, and a record of what it found.**
+<p align="center">
+  <a href="https://doi.org/10.1109/RE68928.2026.00028"><img alt="Paper" src="https://img.shields.io/badge/IEEE%20RE%202026-10.1109%2FRE68928.2026.00028-00629B"></a>
+  <a href="https://doi.org/10.5281/zenodo.20187897"><img alt="Replication package" src="https://img.shields.io/badge/replication-Zenodo-1682D4"></a>
+  <img alt="Status" src="https://img.shields.io/badge/status-interface%20draft-orange">
+  <a href="LICENSE"><img alt="Code licence" src="https://img.shields.io/badge/code-Apache--2.0-blue"></a>
+  <a href="LICENSE-spec"><img alt="Spec licence" src="https://img.shields.io/badge/spec-CC--BY--4.0-blue"></a>
+</p>
 
-Coding agents begin as soon as they are asked, whatever the request leaves out. The omissions are not random: security posture, compliance constraints and operational requirements are the least covered dimensions in real requests, and the resulting code looks finished. Most tooling helps you write a specification. spec-gate decides whether the specification is sufficient to start, and writes down the decision.
+---
 
-Measured on 100 underspecified requests across five models: 29 to 50 percent fewer critical omissions than generating directly. Asking clarifying questions without a stopping rule made omissions worse on four of the five.
+Coding agents start as soon as they are asked, whatever the request leaves out. The omissions are not random. Security posture, compliance constraints and operational requirements are the least covered dimensions in real requests, and the code that comes back looks finished either way.
 
-**It refuses.** Below the threshold it returns a block, not a warning. An override is allowed and must carry a written reason, which lands in the record.
+Most tooling helps you write a specification. **spec-gate decides whether the specification is sufficient to start, and writes down the decision.**
+
+```
+request ──▶ score against profile ──▶ below threshold?  ──▶ BLOCK + the questions that close the gap
+                                          │
+                                          └─ at or above ──▶ PROCEED + a committed record of why
+```
+
+It refuses. Below the threshold it returns a block, not a warning. An override is allowed and must carry a written reason, which lands in the record.
+
+## Why a threshold, and not just more questions
+
+Asking the model to clarify sounds like the safe option. Measured across five models on 100 deliberately underspecified requests, clarification **without** a stopping rule made critical omissions **worse** on four of them. Gating on a sufficiency threshold reduced them on all five.
+
+| Model | Direct generation | Clarification, no gate | Gated | Reduction |
+|---|---:|---:|---:|---:|
+| GPT-OSS 20B | 10.9% | 11.7% | **5.4%** | −50% |
+| Qwen 2.5 7B | 28.2% | 36.0% | **14.6%** | −48% |
+| Mistral 7B | 31.4% | 45.3% | **17.3%** | −45% |
+| GPT-4o-mini | 18.5% | 36.0% | **11.7%** | −37% |
+| Llama 3.2 3B | 34.8% | 38.2% | **24.8%** | −29% |
+
+Critical omission rate: the share of safety, compliance and operational requirements the output left out. Lower is better. Method, baselines and full results: [IEEE RE 2026](https://doi.org/10.1109/RE68928.2026.00028).
+
+Two caveats the paper states and this README will not bury. Answers came from a simulated user who always knew the right answer, so those reductions are an upper bound. Scorer agreement with human annotation was 0.71 (Cohen's kappa): good enough to gate on, not good enough to trust silently, which is why every score carries its evidence.
 
 ## Interface
 
@@ -31,7 +63,7 @@ Scores a request, returns a verdict. Writes nothing.
   "sufficiency": 0.62,                // weighted coverage, 0 to 1
   "threshold": 0.8,
   "profile": {"id": "agent-task", "version": "0.1.0", "source": ".spec-gate.yml"},
-  "scorer": {"type": "sampling", "model": "<as reported by the client>"},
+  "scorer": {"type": "sampling", "independent": false},
   "dimensions": [
     {"id": "must_not_change", "coverage": 0.4, "method": "model",
      "evidence": "mentions SSO, says nothing about existing sessions",
@@ -46,7 +78,7 @@ Scores a request, returns a verdict. Writes nothing.
 
 One question per uncovered dimension, ordered by how much it moves the verdict. The caller decides whether to put them to the user.
 
-The profile is not a parameter. It comes from `.spec-gate.yml` in the repo, so a caller cannot choose a softer one.
+**The profile is not a parameter.** It comes from `.spec-gate.yml` in the repo, so a caller cannot quietly choose a softer one.
 
 ### `write_record`
 
@@ -54,47 +86,87 @@ Stores the decision. This is the artifact, and the reason the tool exists.
 
 ```jsonc
 // in
-{ "request": "...", "answers": [...], "decision": "proceed" }
+{"request": "...", "answers": [...], "decision": "proceed"}
 // or
-{ "request": "...", "decision": "override", "override": {"reason": "hotfix, gap accepted", "by": "pedram"} }
+{"request": "...", "decision": "override", "override": {"reason": "hotfix, gap accepted", "by": "pedram"}}
 
 // out
-{ "path": ".spec-gate/2026-09-16-add-sso.json", "hash": "sha256:9f2c...", "decision": "proceed" }
+{"path": ".spec-gate/2026-09-16-add-sso.json", "hash": "sha256:9f2c...", "decision": "proceed"}
 ```
 
-The record holds the request, the profile and its version, per-dimension coverage with evidence and how it was scored, every question asked and the answer given, the resulting constraints and assumptions, the verdict, any override with its reason and author, which scorer ran, and a timestamp. Schema: [`schema/record.schema.json`](schema/record.schema.json).
+## The record
 
-Records are committed to the repo they belong to. Uncommitted evidence is not evidence. Each one gets a Markdown sibling so a reviewer who does not read JSON can still read the decision in a pull request.
+A decision record answers one question: **why was this allowed to proceed?** It holds the request, the profile and its version, per-dimension coverage with the evidence behind each score and whether a rule or a model produced it, every question asked and the answer given, the constraints and assumptions that resulted, any override with its reason and author, which scorer ran, and a timestamp. Full contract: [`schema/record.schema.json`](schema/record.schema.json).
 
-**Assert on the stored record, never on console output.** Tests read the JSON fields.
+Every record gets a Markdown sibling, so a reviewer who does not read JSON can still read the decision in a pull request:
+
+```markdown
+### Add SSO to the admin dashboard
+**Proceeded** at 0.86 against a threshold of 0.80 · profile `agent-task@0.1.0` · scorer: sampling (not independent)
+
+**Constraints**  existing sessions stay valid through rollout · tokens never written to logs
+**Assumptions**  IdP is the existing Entra tenant (unconfirmed)
+**Asked**        Which current behaviour must keep working? → "existing sessions must not drop"
+```
+
+Records are committed to the repository they belong to. Uncommitted evidence is not evidence, and a record next to the change it authorised is reviewable where the change is reviewed.
+
+> **Assert on the stored record, never on console output.** Tests read the JSON fields.
 
 ## Profiles
 
 Dimensions are data, so a team can fit them to its own failures. A profile sets the dimensions, their weights, the coverage rubric and the threshold.
 
-- **[`agent-task`](profiles/agent-task.yaml)** ships first: the short profile for autonomous queues, where an underspecified item is executed with no human in the loop.
-- **`sdlc-critical`**, the paper's ten dimensions grounded in ISO/IEC/IEEE 29148 and Volere, lands in v0.2.
+| Profile | For | Dimensions | Status |
+|---|---|---|---|
+| [`agent-task`](profiles/agent-task.yaml) | Autonomous queues, where an item runs with no human in the loop | What must not change · what the tests assert · blast radius · definition of done | v0.1 |
+| `sdlc-critical` | Security, compliance and operations-critical work | The paper's ten, grounded in ISO/IEC/IEEE 29148 and Volere | v0.2 |
 
 Where a dimension can be checked without a model, it is. A rule cannot be talked out of its answer.
 
 ## Scoring
 
-By default spec-gate asks the calling agent through MCP sampling, so it needs no key and no account. That means the model being gated also scores the request, which is a real weakness: an independent scorer is configurable, and **the record always names which one ran.**
+By default spec-gate asks the calling agent through MCP sampling, so it needs no key and no account of its own. That means the model being gated also scores the request. It is a real weakness, an independent scorer is configurable, and **the record names which one ran either way.**
 
-Scorer agreement with human annotation was 0.71 (Cohen's kappa) in the paper. Good enough to gate on, not good enough to trust silently, which is why every score carries its evidence.
+## Design decisions
 
-## Not in scope
+The reasoning, and what was deliberately excluded, is in [`DECISIONS.md`](DECISIONS.md). In short:
 
-No hosted service. No dashboard. No review of code, and it is not a linter. It runs once, before the work starts. Anything outside the profile passes untouched.
+- **It refuses rather than warns.** A gate with an escape hatch is a warning.
+- **Overrides are never silent.** A reason, an author and a timestamp, in the record.
+- **The repo picks the profile, not the caller.**
+- **Records are committed**, JSON as the source of truth, Markdown for humans.
+- **No signing or hash chaining.** Git history already gives tamper evidence here.
+- **Not a spec generator, not a plan mode, not a linter.** It runs once, before the work starts, and anything outside the profile passes untouched.
 
-## Status and support
+## Status
 
-**Interface and schema only. No implementation yet.** v0.1 is the two tools, the `agent-task` profile, records written and committed, running against one real autonomous queue.
+**Interface, profile and schema only. No implementation yet.**
+
+| | Scope |
+|---|---|
+| **v0.1** | Two tools, `agent-task` profile, deterministic checks plus sampling, records written and committed, running against one real autonomous queue |
+| **v0.2** | `sdlc-critical` profile |
+
+Open tasks: [`TASKS.md`](TASKS.md). Omissions it has caught in real use: [`CATCHES.md`](CATCHES.md).
 
 This is a reference implementation of a published method, maintained as time allows. **No support commitment and no roadmap.** Issues are welcome, answers are not guaranteed.
 
-The benchmark, baselines and results are in the replication package: [doi:10.5281/zenodo.20187897](https://doi.org/10.5281/zenodo.20187897).
+## Citation
+
+```bibtex
+@inproceedings{madani2026rsga,
+  author    = {Madani, Mohammadamin and Nahhas, Abdulrahman and Chernigovskaya, Maria and Turowski, Klaus},
+  title     = {Requirements Sufficiency Gating for {LLM}-Assisted Automation: When Should Generation Proceed?},
+  booktitle = {2026 IEEE 34th International Requirements Engineering Conference (RE)},
+  year      = {2026},
+  pages     = {262--272},
+  address   = {Montreal, QC, Canada},
+  publisher = {IEEE},
+  doi       = {10.1109/RE68928.2026.00028}
+}
+```
 
 ## Licence
 
-Code Apache-2.0 ([LICENSE](LICENSE)). The dimension spec and profiles CC-BY-4.0 ([LICENSE-spec](LICENSE-spec)).
+Code [Apache-2.0](LICENSE). Dimension spec, profiles and schema [CC-BY-4.0](LICENSE-spec).
