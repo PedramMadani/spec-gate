@@ -9,8 +9,8 @@
 | `SG-02` | Repo public, README labelled interface draft | `[ ]` |
 | `SG-03` | MCP server skeleton (TypeScript), two tools registered, `npx` runnable | `[x]` 2026-09-16 |
 | `SG-04` | `.spec-gate.yml` config resolution: profile by repo and path, caller cannot override | `[x]` 2026-09-16 |
-| `SG-05` | Deterministic checks for `test_contract` and `blast_radius` | `[ ]` |
-| `SG-06` | Declared scoring against the rubric with rule veto; scorer identity recorded; independent scorer configurable. **Not sampling:** deprecated in spec 2026-07-28 and unsupported in Claude Code, Cursor and Codex | `[ ]` |
+| `SG-05` | Deterministic checks for `test_contract` and `blast_radius`, with the veto | `[x]` 2026-09-16 |
+| `SG-06` | Declared scoring against the rubric with rule veto (done); external scorer configurable (open); scorer identity recorded; independent scorer configurable. **Not sampling:** deprecated in spec 2026-07-28 and unsupported in Claude Code, Cursor and Codex | `[ ]` |
 | `SG-07` | `write_record`: JSON validated against the schema, content hash, Markdown sibling | `[x]` 2026-09-16 |
 | `SG-08` | Override path: reason mandatory, blocks without one | `[x]` 2026-09-16 |
 | `SG-09` | Tests assert on the stored record, never on stdout | `[x]` 2026-09-16 (34 tests) |

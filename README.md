@@ -128,7 +128,11 @@ Where a dimension can be checked without a model, it is. A rule cannot be talked
 
 Rules first, declaration second, and a rule always wins.
 
-Where a dimension can be settled mechanically it is, and that score cannot be revised. Whatever the rules cannot answer, the calling agent declares against the rubric, quoting evidence from the request itself. A declared score is marked as declared in the record, so a reader can see exactly which judgements were self-reported and which were not. An independent scorer is configurable for anyone who wants the judge separated from the judged.
+A rule that misses is decisive: if nothing in the request, the target path or the user's answer names a test, `test_contract` is capped at zero and no declaration can lift it. A rule that matches is not: seeing a test path proves a test was named, not that it binds this change, so the cap lifts and judgement goes back to the caller. Whatever the rules cannot answer, the caller declares against the rubric with evidence, and a declared score is marked as declared in the record.
+
+**The rules read the request, the target path and what the user actually answered. They do not read the caller's own reasoning**, or the veto would be advisory. "I checked the tests and they are fine" scores zero; a named test file does not.
+
+An independent scorer is configurable for anyone who wants the judge separated from the judged.
 
 This is deliberately not MCP sampling. Sampling was deprecated in the 2026-07-28 spec revision, and of the clients people actually use only VS Code implements it, so a design resting on it would not run where it is needed. Blocking questions are put to the user through elicitation instead, which is supported in Claude Code, Cursor, VS Code and Codex.
 
@@ -173,16 +177,16 @@ Or in `.mcp.json` (Claude Code) or `.cursor/mcp.json` (Cursor):
 
 Then put a [`.spec-gate.yml`](examples/.spec-gate.yml) in the repo you want gated.
 
-Not on npm yet. Scores are currently all caller-declared, since the deterministic rule veto lands in v0.1.
+Not on npm yet.
 
 ## Status
 
-**Working, and unfinished.** The gate refuses, records are written and enforced by a hook. The deterministic checks that veto a declared score are not built yet, which means a caller could currently declare its way through.
+**Working.** The gate refuses, rules veto declared scores, records are written and hashed, and a hook enforces them. What is left is elicitation for the blocking questions, the `sdlc-critical` profile, and real use.
 
 | | Scope | |
 |---|---|---|
-| **v0.0.1** | Server over stdio, config and profile resolution, both tools working, records written and hashed, PreToolUse enforcement hook, 34 tests | ✅ |
-| **v0.1** | Deterministic checks, rule veto on declared scores, elicitation for blocking questions, running against one real autonomous queue | |
+| **v0.0.1** | Server over stdio, both tools working, deterministic rule veto, records written and hashed, PreToolUse enforcement hook, 41 tests | ✅ |
+| **v0.1** | Elicitation for blocking questions, published to npm, running against one real autonomous queue | |
 | **v0.2** | `sdlc-critical` profile | |
 
 Open tasks: [`TASKS.md`](TASKS.md). Omissions it has caught in real use: [`CATCHES.md`](CATCHES.md).

@@ -6,6 +6,7 @@ import { loadConfig, profileFor, ConfigError } from './config.js';
 import { loadProfile, ProfileError } from './profile.js';
 import { COVERAGE_VALUES } from './types.js';
 import { writeRecord, RecordError, type ScoredDimension } from './record.js';
+import { applyVeto, prescore } from './checks.js';
 
 const VERSION = '0.0.1';
 
@@ -26,6 +27,7 @@ const dimensionOut = z.object({
   method: z.enum(['deterministic', 'model', 'unscored']),
   evidence: z.string().nullable(),
   ask: z.string().nullable(),
+  ceiling: z.number().describe('Highest coverage a declaration may claim here. A rule can cap it below 1.'),
 });
 
 const scoreOutput = z.object({
@@ -81,27 +83,32 @@ serveStdio(() => {
       const profile = loadProfile(profileFor(config, target), config.root);
       const threshold = config.thresholdOverride ?? profile.threshold;
 
-      // v0.0.1: nothing is scored yet, so everything is unscored and the verdict is
-      // block. That is the right default: an unscored request is not a passing one.
-      const dimensions = profile.dimensions.map((d) => ({
-        id: d.id,
-        question: d.question,
-        weight: d.weight,
-        coverage: 0,
-        method: 'unscored' as const,
-        evidence: null,
-        ask: d.question,
-      }));
+      // Rules answer what they can before anything is declared. A dimension a rule
+      // has already settled downward cannot be talked upward later.
+      const pre = prescore(profile, request, target);
+      const dimensions = profile.dimensions.map((d, i) => {
+        const p = pre[i]!;
+        return {
+          id: d.id,
+          question: d.question,
+          weight: d.weight,
+          coverage: p.coverage,
+          method: p.method,
+          evidence: p.evidence,
+          ask: p.method === 'deterministic' && p.coverage === 0 ? d.question : p.method === 'unscored' ? d.question : null,
+          ceiling: p.ceiling,
+        };
+      });
 
       const data = {
         verdict: 'block' as const,
-        sufficiency: 0,
+        sufficiency: Math.round(profile.dimensions.reduce((a, d, i) => a + d.weight * dimensions[i]!.coverage, 0) * 1000) / 1000,
         threshold,
         profile: { id: profile.id, version: profile.version, source: profile.source },
         scorer: { type: 'deterministic+declared' as const, independent: false },
         rubric: profile.rubric,
         dimensions,
-        blocking: dimensions.map((d) => d.id),
+        blocking: dimensions.filter((d) => d.coverage < 1).map((d) => d.id),
         instructions: DECLARE,
       };
       return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }], structuredContent: data };
@@ -123,7 +130,12 @@ serveStdio(() => {
             z.object({
               id: z.string(),
               coverage: z.union([z.literal(0), z.literal(0.4), z.literal(0.7), z.literal(1)]),
-              evidence: z.string().min(1).describe('Quote from the request that justifies this score.'),
+              evidence: z.string().min(1).describe('Quote from the request or the answer that justifies this score.'),
+              question: z.string().optional().describe('The question put to the user, if one was.'),
+              answer: z
+                .string()
+                .optional()
+                .describe('What the user answered, verbatim. Answers are evidence and the rules read them; your own reasoning is not.'),
             }),
           )
           .describe('One entry per profile dimension, scored against the rubric.'),
@@ -143,6 +155,7 @@ serveStdio(() => {
         markdown_path: z.string(),
         hash: z.string(),
         missing: z.array(z.string()),
+        vetoed: z.array(z.string()).describe('Dimensions where a rule capped the declared score.'),
       }),
     },
     async ({ request, target, cwd, dimensions, constraints, assumptions, override, session }) => {
@@ -160,16 +173,31 @@ serveStdio(() => {
 
       // Weighted coverage, computed here rather than taken from the caller: a verdict
       // the caller could assert is not a gate.
+      const vetoed: string[] = [];
       const scored: ScoredDimension[] = profile.dimensions.map((d) => {
         const got = declared.get(d.id)!;
-        return { id: d.id, coverage: got.coverage, method: 'model' as const, evidence: got.evidence };
+        // Rules read the request, the target, and what the user actually answered.
+        // They do not read the caller's own reasoning, or the veto would be advisory.
+        const answered = [request, got.answer ?? ''].filter(Boolean).join('\n');
+        const v = applyVeto(d, got.coverage, got.evidence, answered, target);
+        if (v.vetoed) vetoed.push(d.id);
+        return {
+          id: d.id,
+          coverage: v.coverage,
+          method: v.method,
+          evidence: v.evidence,
+          ...(got.question || got.answer
+            ? { questions: [{ ask: got.question ?? d.question, answer: got.answer ?? null, answered_by: got.answer ? 'user' : null }] }
+            : {}),
+        };
       });
-      const sufficiency = profile.dimensions.reduce((a, d) => a + d.weight * declared.get(d.id)!.coverage, 0);
+      const byId = new Map(scored.map((d) => [d.id, d]));
+      const sufficiency = profile.dimensions.reduce((a, d) => a + d.weight * byId.get(d.id)!.coverage, 0);
       const passes = sufficiency >= threshold;
       const verdict = passes ? ('proceed' as const) : override ? ('override' as const) : ('block' as const);
 
       if (!passes && !override) {
-        const missing = profile.dimensions.filter((d) => declared.get(d.id)!.coverage < 1).map((d) => d.id);
+        const missing = profile.dimensions.filter((d) => byId.get(d.id)!.coverage < 1).map((d) => d.id);
         try {
           writeRecord(config, {
             request, profile, threshold, sufficiency, dimensions: scored, constraints, assumptions,
@@ -180,6 +208,7 @@ serveStdio(() => {
         } catch { /* a blocked record failing to write must not look like authorisation */ }
         return fail(
           `blocked at ${sufficiency.toFixed(2)} against a threshold of ${threshold}. Under-covered: ${missing.join(', ')}. ` +
+            (vetoed.length ? `Capped by rule, not by judgement: ${vetoed.join(', ')}. ` : '') +
             'Put the open questions to the user, then score again. To proceed anyway, call write_record with an override and a written reason.',
         );
       }
@@ -201,7 +230,8 @@ serveStdio(() => {
           path: out.path,
           markdown_path: out.markdownPath,
           hash: out.hash,
-          missing: profile.dimensions.filter((d) => declared.get(d.id)!.coverage < 1).map((d) => d.id),
+          missing: profile.dimensions.filter((d) => byId.get(d.id)!.coverage < 1).map((d) => d.id),
+          vetoed,
         };
         return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }], structuredContent: data };
       } catch (e) {

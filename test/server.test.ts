@@ -47,14 +47,35 @@ test('an unscored request blocks, and says how to score it', async () => {
   assert.match(out.instructions, /cannot be revised/);
 });
 
-test('every dimension carries the question that closes it', async () => {
+test('rules settle what they can, and the rest still carries a question', async () => {
   const res = await client.callTool({ name: 'score_request', arguments: { request: 'tidy up the login page' } });
   const out = res.structuredContent as Record<string, any>;
-  for (const d of out.dimensions) {
-    assert.equal(typeof d.ask, 'string');
-    assert.ok(d.ask.length > 10, `${d.id} has a real question`);
-    assert.equal(d.method, 'unscored');
-  }
+  const byId = new Map(out.dimensions.map((d: any) => [d.id, d]));
+  const tests = byId.get('test_contract') as any;
+  assert.equal(tests.method, 'deterministic', 'no test named anywhere, so the rule settles it');
+  assert.equal(tests.ceiling, 0, 'and caps what any later declaration may claim');
+  const invariants = byId.get('must_not_change') as any;
+  assert.equal(invariants.method, 'unscored');
+  assert.ok(invariants.ask.length > 10);
+});
+
+test('a declared score cannot exceed what the rules allow', async () => {
+  const res = await client.callTool({
+    name: 'write_record',
+    arguments: {
+      request: 'refactor the session handling',
+      dimensions: [
+        { id: 'must_not_change', coverage: 1, evidence: 'stated' },
+        { id: 'test_contract', coverage: 1, evidence: 'I am confident the tests are fine' },
+        { id: 'blast_radius', coverage: 1, evidence: 'small change' },
+        { id: 'done_condition', coverage: 1, evidence: 'it works' },
+      ],
+      session: 'sess-1',
+    },
+  });
+  assert.equal(res.isError, true, 'declaring full coverage must not clear the gate');
+  assert.match(JSON.stringify(res.content), /Capped by rule, not by judgement/);
+  assert.match(JSON.stringify(res.content), /test_contract/);
 });
 
 test('write_record writes a record when coverage clears the threshold', async () => {
@@ -64,8 +85,11 @@ test('write_record writes a record when coverage clears the threshold', async ()
       request: 'Add SSO to the admin dashboard',
       dimensions: [
         { id: 'must_not_change', coverage: 1, evidence: 'existing sessions must stay valid' },
-        { id: 'test_contract', coverage: 1, evidence: 'test/auth.test.ts asserts session persistence' },
-        { id: 'blast_radius', coverage: 1, evidence: 'src/auth only' },
+        { id: 'test_contract', coverage: 1, evidence: 'the user named the binding test',
+          question: 'Which tests already assert behaviour this change must not break?',
+          answer: 'test/auth.test.ts asserts that existing sessions survive a provider change' },
+        { id: 'blast_radius', coverage: 1, evidence: 'the user scoped it',
+          question: 'Which files may this change touch?', answer: 'src/auth only, nothing outside it' },
         { id: 'done_condition', coverage: 1, evidence: 'login through the IdP succeeds' },
       ],
       constraints: ['tokens never written to logs'],
@@ -97,7 +121,7 @@ test('a thin request is blocked, and the block is recorded', async () => {
     },
   });
   assert.equal(res.isError, true);
-  assert.match(JSON.stringify(res.content), /blocked at 0\.08/);
+  assert.match(JSON.stringify(res.content), /blocked at 0\.0/);
   assert.match(JSON.stringify(res.content), /override/);
 });
 
