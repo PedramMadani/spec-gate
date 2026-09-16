@@ -1,0 +1,11 @@
+# Copy to the root of the repo you want gated.
+# The profile is chosen here, by the repo, and never by the caller.
+
+profile: agent-task          # applies where no rule below matches
+records: .spec-gate          # where decision records are written and committed
+
+rules:
+  - paths: [src/auth, src/billing, infra]
+    profile: sdlc-critical   # lands in v0.2; the stricter profile for these paths
+  - paths: [docs, content]
+    profile: agent-task

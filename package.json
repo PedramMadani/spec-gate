@@ -1,0 +1,25 @@
+{
+  "name": "spec-gate",
+  "version": "0.0.1",
+  "description": "A gate that refuses to let an AI agent start on an underspecified request, and a committed record of what was missing.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": { "type": "git", "url": "git+https://github.com/PedramMadani/spec-gate.git" },
+  "bin": { "spec-gate": "./dist/index.js" },
+  "files": ["dist", "profiles", "schema"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "test": "tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
