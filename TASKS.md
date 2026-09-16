@@ -6,7 +6,7 @@
 | ID | Task | Status |
 |---|---|---|
 | `SG-01` | Interface, profile and record schema written | `[x]` 2026-09-16 |
-| `SG-02` | Repo public, README labelled interface draft | `[ ]` |
+| `SG-02` | Repo public, README honest about status | `[x]` 2026-09-16 |
 | `SG-03` | MCP server skeleton (TypeScript), two tools registered, `npx` runnable | `[x]` 2026-09-16 |
 | `SG-04` | `.spec-gate.yml` config resolution: profile by repo and path, caller cannot override | `[x]` 2026-09-16 |
 | `SG-05` | Deterministic checks for `test_contract` and `blast_radius`, with the veto | `[x]` 2026-09-16 |
