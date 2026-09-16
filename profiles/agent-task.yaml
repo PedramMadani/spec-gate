@@ -1,0 +1,52 @@
+# agent-task: the short profile for autonomous queues, where an item is executed
+# with no human in the loop. Four dimensions, chosen from observed failures rather
+# than from the standard: an item that omits any of them has already caused damage.
+id: agent-task
+version: 0.1.0
+threshold: 0.8
+
+rubric:                 # coverage values a dimension may take
+  0.0: absent           # nothing in the request speaks to this
+  0.4: named            # mentioned, not actionable
+  0.7: partial          # actionable, leaves a decision to the agent
+  1.0: sufficient       # the agent has no room to choose wrongly
+
+dimensions:
+  - id: must_not_change
+    weight: 0.35
+    question: Which current behaviour must keep working exactly as it does now?
+    why: >
+      The documented failure: an item told an agent to fill in i18n keys that a test
+      deliberately asserted must stay empty. The requirement was invisible because it
+      was an invariant, not a feature.
+    checks: []          # model-scored; invariants are rarely stated mechanically
+
+  - id: test_contract
+    weight: 0.25
+    question: Which tests already assert behaviour this change must not break?
+    why: An agent that does not know which assertions bind it will edit them to pass.
+    checks:
+      - id: names_test_path
+        kind: regex
+        pattern: '(test|spec)[/_.-]|\.test\.|\.spec\.'
+        on_match: 0.7
+        on_miss: 0.0
+
+  - id: blast_radius
+    weight: 0.2
+    question: Which files, packages or surfaces may this change touch, and which are out of bounds?
+    why: Scope stated after the fact is not scope. Unbounded edits are unreviewable.
+    checks:
+      - id: names_path
+        kind: regex
+        pattern: '(^|\s)([\w.-]+/)+[\w.-]+'
+        on_match: 0.7
+        on_miss: 0.0
+
+  - id: done_condition
+    weight: 0.2
+    question: What observable state means this item is finished?
+    why: >
+      Without it the agent invents an acceptance criterion, and the queue cannot tell
+      a finished item from an abandoned one.
+    checks: []

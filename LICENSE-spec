@@ -1,0 +1,10 @@
+The dimension specification and the profiles in `profiles/`, together with the record
+schema in `schema/`, are licensed under the Creative Commons Attribution 4.0
+International Licence (CC-BY-4.0): https://creativecommons.org/licenses/by/4.0/
+
+Attribution: Madani, Nahhas, Chernigovskaya, Turowski. "Requirements Sufficiency
+Gating for LLM-Assisted Automation: When Should Generation Proceed?" 2026 IEEE 34th
+International Requirements Engineering Conference (RE), pp. 262-272.
+doi:10.1109/RE68928.2026.00028
+
+Code in this repository is licensed separately under Apache-2.0; see LICENSE.
