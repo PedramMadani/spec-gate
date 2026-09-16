@@ -37,8 +37,12 @@ waits for v0.2.
 
 ## Public surface
 - Repo public from the first commit, honestly labelled as an interface draft.
-- The `/tools/` page on the site and any post wait until it has caught something real.
-  Announcing an unused tool is the demo this paper argues against.
+- ~~The `/tools/` page on the site and any post wait until it has caught something real.~~
+  **CHANGED 2026-09-16, Pedram's call, over my objection.** The page shipped the same day
+  with the entry tagged *Interface draft* and the no-implementation line on it, rather than
+  waiting for a catch. The original reason still stands and is worth re-reading before the
+  next one: announcing an unused tool is the demo this paper argues against. **A post still
+  waits for a real catch.**
 - Site section bar: public and installable, **and** backed by evidence. Two conditions,
   both required, or the page becomes a junk drawer.
 - No competitor is named anywhere, in the repo or on the site.
