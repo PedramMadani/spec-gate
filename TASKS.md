@@ -14,7 +14,9 @@
 | `SG-07` | `write_record`: JSON validated against the schema, content hash, Markdown sibling | `[x]` 2026-09-16 |
 | `SG-08` | Override path: reason mandatory, blocks without one | `[x]` 2026-09-16 |
 | `SG-09` | Tests assert on the stored record, never on stdout | `[x]` 2026-09-16 (34 tests) |
-| `SG-10` | Wire into one real autonomous queue and leave it running | `[ ]` |
+| `SG-15` | Shadow mode: allow, but log what it would have blocked | `[x]` 2026-09-16 |
+| `SG-10` | Wire into the Legalithm Ralph worktree **in shadow mode**, leave it running a week | `[ ]` |
+| `SG-16` | Read the shadow log and decide: enforce, retune the profile, or drop it | `[ ]` |
 | `SG-11` | First catch logged in `CATCHES.md` | `[ ]` |
 | `SG-12` | Elicitation for blocking questions (Claude Code, Cursor, VS Code, Codex all support it) | `[ ]` |
 | `SG-13` | **PreToolUse hook**: edits denied without a fresh authorising record | `[x]` 2026-09-16 |

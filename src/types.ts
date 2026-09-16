@@ -38,6 +38,11 @@ export interface ProfileRule {
   profile: string;
 }
 
+/** `deny` blocks the edit. `shadow` allows it and writes down what it would have
+ *  done, which is how you find out whether a gate is right before it can cost you
+ *  anything. `off` does nothing at all. */
+export type EnforceMode = 'deny' | 'shadow' | 'off';
+
 export interface GateConfig {
   /** Directory holding .spec-gate.yml; all paths resolve from here. */
   root: string;
@@ -46,4 +51,6 @@ export interface GateConfig {
   rules: ProfileRule[];
   recordsDir: string;
   thresholdOverride?: number;
+  enforce: EnforceMode;
+  shadowLog: string;
 }

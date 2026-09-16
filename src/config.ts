@@ -1,11 +1,15 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve, relative, sep } from 'node:path';
 import { parse } from 'yaml';
-import type { GateConfig, ProfileRule } from './types.js';
+import type { EnforceMode, GateConfig, ProfileRule } from './types.js';
 
 export const CONFIG_NAME = '.spec-gate.yml';
 
 export class ConfigError extends Error {}
+
+/** Separate from ConfigError on purpose: "this repo is not gated" and "this repo is
+ *  gated and the config is broken" must never take the same branch. */
+export class MissingConfigError extends ConfigError {}
 
 /** Walk up from `from` looking for .spec-gate.yml. The config belongs to the repo,
  *  not to the caller: this is what stops an agent choosing a softer profile for
@@ -23,7 +27,7 @@ export function findConfig(from = process.cwd()): string | null {
 
 export function loadConfig(from = process.cwd()): GateConfig {
   const source = findConfig(from);
-  if (!source) throw new ConfigError(`no ${CONFIG_NAME} found from ${resolve(from)} upwards`);
+  if (!source) throw new MissingConfigError(`no ${CONFIG_NAME} found from ${resolve(from)} upwards`);
 
   let raw: unknown;
   try {
@@ -45,7 +49,12 @@ export function loadConfig(from = process.cwd()): GateConfig {
     thresholdOverride = c.threshold;
   }
 
-  return { root: dirname(source), source, defaultProfile, rules, recordsDir, thresholdOverride };
+  const enforce = (c.enforce ?? 'deny') as EnforceMode;
+  if (!['deny', 'shadow', 'off'].includes(enforce))
+    throw new ConfigError(`${source}: enforce must be one of deny, shadow, off (got ${String(c.enforce)})`);
+  const shadowLog = typeof c.shadow_log === 'string' ? c.shadow_log : `${recordsDir}/shadow.jsonl`;
+
+  return { root: dirname(source), source, defaultProfile, rules, recordsDir, thresholdOverride, enforce, shadowLog };
 }
 
 function rule(raw: unknown, where: string): ProfileRule {

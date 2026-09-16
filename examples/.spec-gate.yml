@@ -3,6 +3,8 @@
 
 profile: agent-task          # applies where no rule below matches
 records: .spec-gate          # where decision records are written and committed
+enforce: shadow              # deny · shadow (allow, but log what it would have done) · off
+shadow_log: .spec-gate/shadow.jsonl
 
 rules:
   - paths: [src/auth, src/billing, infra]

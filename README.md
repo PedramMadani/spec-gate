@@ -162,6 +162,22 @@ An authorisation is for a piece of work, not a standing permission: it is scoped
 
 An override still works, and still costs a written reason on the record.
 
+### Shadow mode
+
+Before a gate is allowed to stop anything, it should prove it would stop the right things. `enforce: shadow` in `.spec-gate.yml` lets every edit through, tells the agent what a real gate would have said, and appends the would-have-blocked decision to `.spec-gate/shadow.jsonl`:
+
+```yaml
+enforce: shadow    # deny (default) · shadow · off
+```
+
+```json
+{"at":"2026-09-16T09:12:04Z","session":"…","tool":"Write","file":"src/auth/session.ts","would_block":true,"reason":"spec-gate: no decision record authorises this work…"}
+```
+
+Run it that way in a repo where an autonomous agent is working and you learn two things nothing else tells you: how often it would fire, and whether it would fire on the right things. Enforce afterwards, on evidence.
+
+**A broken config blocks rather than disabling the gate.** A typo in `.spec-gate.yml` is not permission to skip it, and `enforce: off` is a decision someone has to write down. Editing `.spec-gate.yml` itself is always allowed, so a bad config can always be repaired.
+
 ## Run it
 
 ```bash
@@ -185,7 +201,7 @@ Not on npm yet.
 
 | | Scope | |
 |---|---|---|
-| **v0.0.1** | Server over stdio, both tools working, deterministic rule veto, records written and hashed, PreToolUse enforcement hook, 41 tests | ✅ |
+| **v0.0.1** | Server over stdio, both tools working, deterministic rule veto, records written and hashed, PreToolUse hook with deny / shadow / off, 47 tests | ✅ |
 | **v0.1** | Elicitation for blocking questions, published to npm, running against one real autonomous queue | |
 | **v0.2** | `sdlc-critical` profile | |
 
