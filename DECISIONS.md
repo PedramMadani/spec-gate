@@ -25,8 +25,13 @@ not a preference. Change one deliberately, or not at all.
   its profile picks the lenient one, which defeats the gate.
 - **Records are committed** next to the change they authorised, JSON plus a Markdown
   sibling for a reviewer who does not read JSON.
-- **The scorer is named in every record.** Sampling by default means the model being
-  gated scores its own request; that weakness is disclosed rather than hidden.
+- **The scorer is named in every record.** ~~Sampling by default~~ **CHANGED 2026-09-16
+  on verified facts:** MCP sampling was deprecated in the 2026-07-28 spec revision and only
+  VS Code implements it, so the no-key default could not exist. Scoring is now rules first,
+  then agent-declared against the rubric with a rule veto, and an optional configured
+  external scorer. A declared score is labelled as declared in the record, which is more
+  honest than sampling would have been. Blocking questions go to the user through
+  elicitation (supported in Claude Code, Cursor, VS Code, Codex).
 - Deterministic checks wherever a dimension allows one. A rule cannot be talked out
   of its answer.
 

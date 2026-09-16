@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://doi.org/10.1109/RE68928.2026.00028"><img alt="Paper" src="https://img.shields.io/badge/IEEE%20RE%202026-10.1109%2FRE68928.2026.00028-00629B"></a>
   <a href="https://doi.org/10.5281/zenodo.20187897"><img alt="Replication package" src="https://img.shields.io/badge/replication-Zenodo-1682D4"></a>
-  <img alt="Status" src="https://img.shields.io/badge/status-interface%20draft-orange">
+  <img alt="Status" src="https://img.shields.io/badge/status-skeleton%20v0.0.1-orange">
   <a href="LICENSE"><img alt="Code licence" src="https://img.shields.io/badge/code-Apache--2.0-blue"></a>
   <a href="LICENSE-spec"><img alt="Spec licence" src="https://img.shields.io/badge/spec-CC--BY--4.0-blue"></a>
 </p>
@@ -63,7 +63,7 @@ Scores a request, returns a verdict. Writes nothing.
   "sufficiency": 0.62,                // weighted coverage, 0 to 1
   "threshold": 0.8,
   "profile": {"id": "agent-task", "version": "0.1.0", "source": ".spec-gate.yml"},
-  "scorer": {"type": "sampling", "independent": false},
+  "scorer": {"type": "deterministic+declared", "independent": false},
   "dimensions": [
     {"id": "must_not_change", "coverage": 0.4, "method": "model",
      "evidence": "mentions SSO, says nothing about existing sessions",
@@ -102,7 +102,7 @@ Every record gets a Markdown sibling, so a reviewer who does not read JSON can s
 
 ```markdown
 ### Add SSO to the admin dashboard
-**Proceeded** at 0.86 against a threshold of 0.80 · profile `agent-task@0.1.0` · scorer: sampling (not independent)
+**Proceeded** at 0.86 against a threshold of 0.80 · profile `agent-task@0.1.0` · scorer: rules + declared (not independent)
 
 **Constraints**  existing sessions stay valid through rollout · tokens never written to logs
 **Assumptions**  IdP is the existing Entra tenant (unconfirmed)
@@ -126,7 +126,13 @@ Where a dimension can be checked without a model, it is. A rule cannot be talked
 
 ## Scoring
 
-By default spec-gate asks the calling agent through MCP sampling, so it needs no key and no account of its own. That means the model being gated also scores the request. It is a real weakness, an independent scorer is configurable, and **the record names which one ran either way.**
+Rules first, declaration second, and a rule always wins.
+
+Where a dimension can be settled mechanically it is, and that score cannot be revised. Whatever the rules cannot answer, the calling agent declares against the rubric, quoting evidence from the request itself. A declared score is marked as declared in the record, so a reader can see exactly which judgements were self-reported and which were not. An independent scorer is configurable for anyone who wants the judge separated from the judged.
+
+This is deliberately not MCP sampling. Sampling was deprecated in the 2026-07-28 spec revision, and of the clients people actually use only VS Code implements it, so a design resting on it would not run where it is needed. Blocking questions are put to the user through elicitation instead, which is supported in Claude Code, Cursor, VS Code and Codex.
+
+Scorer agreement with human annotation was 0.71 (Cohen's kappa) in the paper. Good enough to gate on, not good enough to trust silently, which is why every score carries its evidence.
 
 ## Design decisions
 
@@ -139,14 +145,32 @@ The reasoning, and what was deliberately excluded, is in [`DECISIONS.md`](DECISI
 - **No signing or hash chaining.** Git history already gives tamper evidence here.
 - **Not a spec generator, not a plan mode, not a linter.** It runs once, before the work starts, and anything outside the profile passes untouched.
 
+## Run it
+
+```bash
+git clone https://github.com/PedramMadani/spec-gate && cd spec-gate && npm install
+claude mcp add spec-gate -- npx tsx /absolute/path/to/spec-gate/src/index.ts
+```
+
+Or in `.mcp.json` (Claude Code) or `.cursor/mcp.json` (Cursor):
+
+```json
+{ "mcpServers": { "spec-gate": { "command": "npx", "args": ["tsx", "/absolute/path/to/spec-gate/src/index.ts"] } } }
+```
+
+Then put a [`.spec-gate.yml`](examples/.spec-gate.yml) in the repo you want gated.
+
+**In 0.0.1 it blocks everything**, on purpose: nothing is scored yet, and an unscored request is not a passing one. `write_record` returns an error rather than pretending a decision was authorised. Not on npm until it does something.
+
 ## Status
 
-**Interface, profile and schema only. No implementation yet.**
+**Skeleton. The server runs and the two tools answer; scoring and the record are not built yet.**
 
-| | Scope |
-|---|---|
-| **v0.1** | Two tools, `agent-task` profile, deterministic checks plus sampling, records written and committed, running against one real autonomous queue |
-| **v0.2** | `sdlc-critical` profile |
+| | Scope | |
+|---|---|---|
+| **v0.0.1** | Server runs over stdio, config and profile resolution, both tools registered, 14 tests | ✅ |
+| **v0.1** | Deterministic checks, declared scoring with rule veto, elicitation for blocking questions, records written and committed, running against one real autonomous queue | |
+| **v0.2** | `sdlc-critical` profile | |
 
 Open tasks: [`TASKS.md`](TASKS.md). Omissions it has caught in real use: [`CATCHES.md`](CATCHES.md).
 
